@@ -42,6 +42,23 @@ The installer replaces app files and preserves:
 %USERPROFILE%\Documents\SFX Roulette\sfx_roulette_config.json
 ```
 
+The installer stores the installed commit in:
+
+```text
+%LOCALAPPDATA%\SFX Roulette\install.json
+```
+
+On later runs it compares that commit with the newest GitHub commit and prints one of:
+
+```text
+SFX Roulette | Updated SFX Roulette: oldsha -> newsha
+SFX Roulette | What's new: Short commit summary
+```
+
+```text
+SFX Roulette | Already on the newest version (newsha).
+```
+
 ## Developer Install
 
 From a local clone:

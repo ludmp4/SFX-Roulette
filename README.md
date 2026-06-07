@@ -39,6 +39,8 @@ docs/resolve_api_limitations.md
 
 To update from an extracted copy, double-click the same `.bat` file again.
 
+The installer clearly reports whether it installed a new version, updated from one commit to another, or found that you are already on the newest version. When an update is available, it prints a tiny “What’s new” summary from the latest commit.
+
 ## One-Line Install Or Update
 
 Run PowerShell as your normal Windows user and paste:
@@ -88,6 +90,17 @@ irm https://raw.githubusercontent.com/ludmp4/SFX-Roulette/main/scripts/install_w
 ```
 
 The update replaces installed app files from `ludmp4/SFX-Roulette` and keeps the existing settings in `%USERPROFILE%\Documents\SFX Roulette`.
+
+Installer output examples:
+
+```text
+SFX Roulette | Updated SFX Roulette: ea839df -> 5c0a2ec
+SFX Roulette | What's new: Detect Resolve audio clips by filename
+```
+
+```text
+SFX Roulette | Already on the newest version (5c0a2ec).
+```
 
 ## Uninstalling
 

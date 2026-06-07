@@ -46,6 +46,126 @@ function Get-LocalSourceRoot {
     return $null
 }
 
+function Get-ShortSha {
+    param([string]$Sha)
+    if (-not $Sha) {
+        return "unknown"
+    }
+    if ($Sha.Length -le 7) {
+        return $Sha
+    }
+    return $Sha.Substring(0, 7)
+}
+
+function Get-InstalledInfo {
+    $versionPath = Join-Path $InstallDir "install.json"
+    if (-not (Test-Path $versionPath)) {
+        return $null
+    }
+    try {
+        return Get-Content -LiteralPath $versionPath -Raw | ConvertFrom-Json
+    } catch {
+        return $null
+    }
+}
+
+function New-VersionInfo {
+    param(
+        [string]$Source = "unknown",
+        [string]$Sha = "",
+        [string]$Message = "",
+        [string]$Url = ""
+    )
+    return [pscustomobject]@{
+        source = $Source
+        sha = $Sha
+        message = $Message
+        url = $Url
+        changes = @()
+    }
+}
+
+function Get-GitCommandPath {
+    $git = Get-Command git -ErrorAction SilentlyContinue
+    if ($git) {
+        return $git.Source
+    }
+
+    $githubDesktopGit = Join-Path $env:LOCALAPPDATA "GitHubDesktop\app-3.5.10\resources\app\git\mingw64\bin\git.exe"
+    if (Test-Path $githubDesktopGit) {
+        return $githubDesktopGit
+    }
+
+    $githubDesktopRoot = Join-Path $env:LOCALAPPDATA "GitHubDesktop"
+    if (Test-Path $githubDesktopRoot) {
+        $candidate = Get-ChildItem -LiteralPath $githubDesktopRoot -Recurse -Filter git.exe -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -like "*\resources\app\git\mingw64\bin\git.exe" } |
+            Select-Object -First 1
+        if ($candidate) {
+            return $candidate.FullName
+        }
+    }
+
+    return ""
+}
+
+function Get-LocalSourceInfo {
+    param([string]$SourceRoot)
+
+    $git = Get-GitCommandPath
+    if (-not $git -or -not (Test-Path (Join-Path $SourceRoot ".git"))) {
+        return New-VersionInfo -Source "local" -Message "Local source install"
+    }
+
+    try {
+        $sha = (& $git -c safe.directory="$SourceRoot" -C $SourceRoot rev-parse HEAD 2>$null).Trim()
+        $message = (& $git -c safe.directory="$SourceRoot" -C $SourceRoot log -1 --pretty=%s 2>$null).Trim()
+        return New-VersionInfo -Source "local-git" -Sha $sha -Message $message
+    } catch {
+        return New-VersionInfo -Source "local" -Message "Local source install"
+    }
+}
+
+function Get-GitHubLatestInfo {
+    $commitApiUrl = "https://api.github.com/repos/$Repo/commits/$Branch"
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $commit = Invoke-RestMethod -Uri $commitApiUrl -UseBasicParsing
+        return New-VersionInfo `
+            -Source "github" `
+            -Sha ([string]$commit.sha) `
+            -Message ([string](([string]$commit.commit.message).Split("`n")[0])) `
+            -Url ([string]$commit.html_url)
+    } catch {
+        Write-Step "Could not check GitHub version before install: $($_.Exception.Message)"
+        return New-VersionInfo -Source "github"
+    }
+}
+
+function Add-GitHubChangeSummary {
+    param(
+        [object]$InstalledInfo,
+        [object]$LatestInfo
+    )
+
+    if (-not $InstalledInfo -or -not $InstalledInfo.commit_sha -or -not $LatestInfo.sha) {
+        return $LatestInfo
+    }
+
+    $compareUrl = "https://api.github.com/repos/$Repo/compare/$($InstalledInfo.commit_sha)...$($LatestInfo.sha)"
+    try {
+        $compare = Invoke-RestMethod -Uri $compareUrl -UseBasicParsing
+        $LatestInfo.changes = @(
+            $compare.commits |
+                Select-Object -Last 3 |
+                ForEach-Object { [string](([string]$_.commit.message).Split("`n")[0]) }
+        )
+    } catch {
+        $LatestInfo.changes = @()
+    }
+    return $LatestInfo
+}
+
 function Get-GitHubSourceRoot {
     $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("sfx-roulette-" + [guid]::NewGuid().ToString("N"))
     $zipPath = Join-Path $tempRoot "source.zip"
@@ -133,10 +253,16 @@ function Initialize-Config {
 }
 
 function Write-VersionInfo {
+    param([object]$LatestInfo)
+
     $versionPath = Join-Path $InstallDir "install.json"
     $payload = [ordered]@{
         repo = $Repo
         branch = $Branch
+        commit_sha = $LatestInfo.sha
+        commit_message = $LatestInfo.message
+        commit_url = $LatestInfo.url
+        source = $LatestInfo.source
         installed_at = (Get-Date).ToUniversalTime().ToString("o")
         install_dir = $InstallDir
         config_dir = $ConfigDir
@@ -144,6 +270,45 @@ function Write-VersionInfo {
 
     Invoke-Step "Recording install metadata" {
         $payload | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $versionPath -Encoding UTF8
+    }
+}
+
+function Write-UpdateResult {
+    param(
+        [object]$InstalledInfo,
+        [object]$LatestInfo
+    )
+
+    $oldSha = ""
+    if ($InstalledInfo -and $InstalledInfo.commit_sha) {
+        $oldSha = [string]$InstalledInfo.commit_sha
+    }
+    $newSha = [string]$LatestInfo.sha
+
+    Write-Host ""
+    if ($oldSha -and $newSha -and $oldSha -eq $newSha) {
+        Write-Step "Already on the newest version ($(Get-ShortSha $newSha))."
+        if ($LatestInfo.message) {
+            Write-Step "Current update: $($LatestInfo.message)"
+        }
+        return
+    }
+
+    if ($oldSha -and $newSha) {
+        Write-Step "Updated SFX Roulette: $(Get-ShortSha $oldSha) -> $(Get-ShortSha $newSha)"
+    } elseif ($newSha) {
+        Write-Step "Installed SFX Roulette version $(Get-ShortSha $newSha)."
+    } else {
+        Write-Step "Installed SFX Roulette."
+    }
+
+    if ($LatestInfo.changes -and $LatestInfo.changes.Count -gt 0) {
+        Write-Step "What's new:"
+        foreach ($change in $LatestInfo.changes) {
+            Write-Host "  - $change"
+        }
+    } elseif ($LatestInfo.message) {
+        Write-Step "What's new: $($LatestInfo.message)"
     }
 }
 
@@ -167,10 +332,14 @@ if ($Uninstall) {
     exit 0
 }
 
+$installedInfo = Get-InstalledInfo
 $sourceRoot = Get-LocalSourceRoot
 if ($sourceRoot) {
     Write-Step "Using local source: $sourceRoot"
+    $latestInfo = Get-LocalSourceInfo -SourceRoot $sourceRoot
 } else {
+    $latestInfo = Get-GitHubLatestInfo
+    $latestInfo = Add-GitHubChangeSummary -InstalledInfo $installedInfo -LatestInfo $latestInfo
     $sourceRoot = Get-GitHubSourceRoot
 }
 
@@ -186,9 +355,8 @@ if (-not $sourceRoot) {
 Copy-AppFiles -SourceRoot $sourceRoot
 Initialize-Config
 Write-ResolveLauncher
-Write-VersionInfo
+Write-VersionInfo -LatestInfo $latestInfo
 
-Write-Host ""
-Write-Step "Installed successfully."
+Write-UpdateResult -InstalledInfo $installedInfo -LatestInfo $latestInfo
 Write-Step "Open Resolve, then choose Workspace > Scripts > Utility > SFX Roulette."
 Write-Step "Run this installer again any time to update from https://github.com/$Repo"
