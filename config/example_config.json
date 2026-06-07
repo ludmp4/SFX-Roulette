@@ -1,0 +1,22 @@
+{
+  "mappings": [
+    {
+      "hotkey": "Ctrl+Alt+1",
+      "bin_name": "Whooshes",
+      "target_audio_track": 3,
+      "last_used_clip_id": null
+    },
+    {
+      "hotkey": "Ctrl+Alt+2",
+      "bin_name": "Hits",
+      "target_audio_track": 5,
+      "last_used_clip_id": null
+    },
+    {
+      "hotkey": "Ctrl+Alt+3",
+      "bin_name": "Glitches",
+      "target_audio_track": 7,
+      "last_used_clip_id": null
+    }
+  ]
+}
