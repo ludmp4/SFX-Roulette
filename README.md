@@ -7,6 +7,7 @@ Project page: <https://github.com/ludmp4/SFX-Roulette>
 ## Folder Structure
 
 ```text
+Install SFX Roulette.bat
 install.ps1
 main.py
 src/sfx_roulette/
@@ -24,9 +25,19 @@ src/sfx_roulette/
   ui.py
 config/example_config.json
 scripts/install_windows.ps1
+scripts/Install SFX Roulette.bat
 docs/testing_checklist.md
 docs/resolve_api_limitations.md
 ```
+
+## Easiest Install
+
+1. Download the repository ZIP from <https://github.com/ludmp4/SFX-Roulette>.
+2. Extract it.
+3. Double-click `Install SFX Roulette.bat`.
+4. Open Resolve and choose `Workspace > Scripts > Utility > SFX Roulette`.
+
+To update from an extracted copy, double-click the same `.bat` file again.
 
 ## One-Line Install Or Update
 
@@ -41,7 +52,7 @@ The same command updates SFX Roulette later. User mappings and `last_used_clip_i
 ## Local Install
 
 1. Close and reopen DaVinci Resolve after installing or updating scripts.
-2. From PowerShell in this folder, run:
+2. Double-click `Install SFX Roulette.bat`, or from PowerShell in this folder run:
 
 ```powershell
 .\install.ps1

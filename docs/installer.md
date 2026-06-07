@@ -8,6 +8,14 @@ https://github.com/ludmp4/SFX-Roulette
 
 ## User Install
 
+Download the repository ZIP from GitHub, extract it, and double-click:
+
+```text
+Install SFX Roulette.bat
+```
+
+Or run the one-line PowerShell installer:
+
 ```powershell
 irm https://raw.githubusercontent.com/ludmp4/SFX-Roulette/main/scripts/install_windows.ps1 | iex
 ```
@@ -17,6 +25,12 @@ This command downloads the latest `main` branch archive from GitHub, installs th
 ## User Update
 
 Run the same command again:
+
+```text
+Install SFX Roulette.bat
+```
+
+Or:
 
 ```powershell
 irm https://raw.githubusercontent.com/ludmp4/SFX-Roulette/main/scripts/install_windows.ps1 | iex
@@ -38,6 +52,8 @@ From a local clone:
 
 The local install path uses the checked-out source instead of downloading from GitHub.
 
+You can also double-click `Install SFX Roulette.bat`.
+
 ## Custom Branch
 
 ```powershell
@@ -54,6 +70,12 @@ From GitHub:
 
 ```powershell
 .\install.ps1 -Uninstall
+```
+
+Or run from Command Prompt:
+
+```bat
+"Install SFX Roulette.bat" -Uninstall
 ```
 
 From GitHub:
