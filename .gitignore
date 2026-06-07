@@ -8,3 +8,5 @@ venv/
 .installer-test/
 *.tmp
 *.log
+sfx_roulette_config.json
+sfx_roulette_config.example.json

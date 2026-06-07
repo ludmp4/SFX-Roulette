@@ -73,11 +73,11 @@ class BinScanner:
 
     def _audio_clip_from_item(self, item: Any) -> Optional[AudioClip]:
         props = item.GetClipProperty() or {}
-        name = item.GetName() or props.get("Clip Name") or props.get("File Name") or "Unnamed"
+        name = str(item.GetName() or props.get("Clip Name") or props.get("File Name") or "Unnamed")
         path = self._first_path(props)
         if not self._is_online(props):
             return None
-        if not self._looks_audio(props, path):
+        if not self._looks_audio(props, name, path):
             return None
         return AudioClip(
             id=self._clip_id(item, name, path),
@@ -90,29 +90,47 @@ class BinScanner:
 
     @staticmethod
     def _first_path(props: Dict[str, Any]) -> str:
-        for key in ("File Path", "Path", "Source File", "Filename"):
+        for key in (
+            "File Path",
+            "File Name",
+            "Filename",
+            "Path",
+            "Source File",
+            "Source Path",
+            "Media Path",
+        ):
             value = props.get(key)
             if value:
-                return str(value)
+                if isinstance(value, (list, tuple)):
+                    value = value[0] if value else ""
+                text = str(value)
+                return text.splitlines()[0].strip()
         return ""
 
     @staticmethod
     def _is_online(props: Dict[str, Any]) -> bool:
-        offline = str(props.get("Offline", "")).lower()
-        status = str(props.get("Status", "")).lower()
+        offline = str(props.get("Offline", props.get("Media Offline", ""))).lower().strip()
+        status = str(props.get("Status", props.get("Media Status", ""))).lower().strip()
         return offline not in {"1", "true", "yes"} and "offline" not in status
 
     @staticmethod
-    def _looks_audio(props: Dict[str, Any], path: str) -> bool:
+    def _looks_audio(props: Dict[str, Any], name: str, path: str) -> bool:
         clip_type = str(props.get("Type", props.get("Clip Type", ""))).lower()
         if "timeline" in clip_type or "fusion" in clip_type or "still" in clip_type:
             return False
         if "audio" in clip_type:
             return True
-        audio_channels = str(props.get("Audio Channels", props.get("Channels", ""))).strip()
-        if audio_channels and audio_channels not in {"0", "None"}:
+        for key in ("Audio Channels", "Channels", "Audio Tracks", "Audio Codec", "Audio Bit Depth"):
+            value = str(props.get(key, "")).strip()
+            if value and value not in {"0", "None", "none", "-"}:
+                return True
+        for candidate in (path, name, str(props.get("File Name", "")), str(props.get("Filename", ""))):
+            if Path(candidate).suffix.lower() in AUDIO_EXTENSIONS:
+                return True
+        format_value = str(props.get("Format", props.get("Codec", ""))).lower()
+        if any(ext.lstrip(".") in format_value for ext in AUDIO_EXTENSIONS):
             return True
-        return Path(path).suffix.lower() in AUDIO_EXTENSIONS
+        return False
 
     @staticmethod
     def _clip_id(item: Any, name: str, path: str) -> str:

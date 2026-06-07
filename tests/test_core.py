@@ -11,6 +11,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from sfx_roulette.config_manager import ConfigManager
+from sfx_roulette.bin_scanner import BinScanner
 from sfx_roulette.hotkey_listener import parse_hotkey
 from sfx_roulette.models import AudioClip, Mapping
 from sfx_roulette.random_picker import RandomPicker
@@ -45,6 +46,13 @@ class CoreTests(unittest.TestCase):
         parsed = parse_hotkey("Ctrl+Alt+1")
         self.assertEqual(parsed.modifiers, 0x0002 | 0x0001)
         self.assertEqual(parsed.vk, 0x31)
+
+    def test_audio_detection_accepts_file_extensions_from_name(self) -> None:
+        self.assertTrue(BinScanner._looks_audio({}, "whoosh_01.mp3", ""))
+        self.assertTrue(BinScanner._looks_audio({}, "hit_01.wav", ""))
+
+    def test_audio_detection_accepts_resolve_file_name_metadata(self) -> None:
+        self.assertTrue(BinScanner._looks_audio({"File Name": "glitch.wav"}, "glitch", ""))
 
 
 if __name__ == "__main__":
