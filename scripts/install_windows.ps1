@@ -73,17 +73,39 @@ function Get-InstalledInfo {
 function New-VersionInfo {
     param(
         [string]$Source = "unknown",
+        [string]$Version = "",
         [string]$Sha = "",
         [string]$Message = "",
         [string]$Url = ""
     )
     return [pscustomobject]@{
         source = $Source
+        version = $Version
         sha = $Sha
         message = $Message
         url = $Url
         changes = @()
     }
+}
+
+function Get-PackageSourceInfo {
+    param([string]$SourceRoot)
+
+    $versionPath = Join-Path $SourceRoot "VERSION.json"
+    if (Test-Path $versionPath) {
+        try {
+            $version = Get-Content -LiteralPath $versionPath -Raw | ConvertFrom-Json
+            return New-VersionInfo `
+                -Source "bundled-package" `
+                -Version ([string]$version.version) `
+                -Sha ([string]$version.commit) `
+                -Message ([string]$version.summary)
+        } catch {
+            return New-VersionInfo -Source "bundled-package" -Message "Bundled package install"
+        }
+    }
+
+    return New-VersionInfo -Source "bundled-package" -Message "Bundled package install"
 }
 
 function Get-GitCommandPath {
@@ -115,7 +137,7 @@ function Get-LocalSourceInfo {
 
     $git = Get-GitCommandPath
     if (-not $git -or -not (Test-Path (Join-Path $SourceRoot ".git"))) {
-        return New-VersionInfo -Source "local" -Message "Local source install"
+        return Get-PackageSourceInfo -SourceRoot $SourceRoot
     }
 
     try {
@@ -211,7 +233,7 @@ function Get-GitHubSourceRoot {
 function Copy-AppFiles {
     param([string]$SourceRoot)
 
-    $items = @("src", "config", "docs", "scripts", "tests", "main.py", "README.md")
+    $items = @("src", "config", "docs", "scripts", "tests", "main.py", "README.md", "VERSION.json")
 
     Invoke-Step "Creating install directory: $InstallDir" {
         New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
@@ -278,6 +300,7 @@ function Write-VersionInfo {
     $payload = [ordered]@{
         repo = $Repo
         branch = $Branch
+        package_version = $LatestInfo.version
         commit_sha = $LatestInfo.sha
         commit_message = $LatestInfo.message
         commit_url = $LatestInfo.url
@@ -299,14 +322,23 @@ function Write-UpdateResult {
     )
 
     $oldSha = ""
+    $oldVersion = ""
     if ($InstalledInfo -and $InstalledInfo.commit_sha) {
         $oldSha = [string]$InstalledInfo.commit_sha
     }
+    if ($InstalledInfo -and $InstalledInfo.package_version) {
+        $oldVersion = [string]$InstalledInfo.package_version
+    }
     $newSha = [string]$LatestInfo.sha
+    $newVersion = [string]$LatestInfo.version
 
     Write-Host ""
     if ($oldSha -and $newSha -and $oldSha -eq $newSha) {
-        Write-Step "Already on the newest version ($(Get-ShortSha $newSha))."
+        if ($newVersion) {
+            Write-Step "Already on bundled package v$newVersion ($(Get-ShortSha $newSha))."
+        } else {
+            Write-Step "Already on the newest version ($(Get-ShortSha $newSha))."
+        }
         if ($LatestInfo.message) {
             Write-Step "Current update: $($LatestInfo.message)"
         }
@@ -315,6 +347,14 @@ function Write-UpdateResult {
 
     if ($oldSha -and $newSha) {
         Write-Step "Updated SFX Roulette: $(Get-ShortSha $oldSha) -> $(Get-ShortSha $newSha)"
+    } elseif ($oldVersion -and $newVersion -and $oldVersion -eq $newVersion) {
+        Write-Step "Already on bundled package v$newVersion."
+    } elseif ($oldVersion -and $newVersion) {
+        Write-Step "Updated bundled package: v$oldVersion -> v$newVersion"
+    } elseif ($newVersion -and $newSha) {
+        Write-Step "Installed bundled package v$newVersion ($(Get-ShortSha $newSha))."
+    } elseif ($newVersion) {
+        Write-Step "Installed bundled package v$newVersion."
     } elseif ($newSha) {
         Write-Step "Installed SFX Roulette version $(Get-ShortSha $newSha)."
     } else {
@@ -376,9 +416,7 @@ if ($sourceRoot) {
         if ($localFallbackSourceRoot) {
             Write-Step "Installing bundled files from this extracted folder instead."
             $sourceRoot = $localFallbackSourceRoot
-            if (-not $latestInfo.sha) {
-                $latestInfo = Get-LocalSourceInfo -SourceRoot $sourceRoot
-            }
+            $latestInfo = Get-PackageSourceInfo -SourceRoot $sourceRoot
         } else {
             throw
         }
