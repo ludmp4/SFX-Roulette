@@ -10,3 +10,4 @@ venv/
 *.log
 sfx_roulette_config.json
 sfx_roulette_config.example.json
+ready_to_ship/

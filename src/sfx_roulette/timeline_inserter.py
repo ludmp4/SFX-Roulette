@@ -38,7 +38,9 @@ class TimelineInserter:
         timecode = getter()
         if not timecode:
             raise TimelineUnavailableError("Cannot read the current playhead position.")
-        return self._timecode_to_frame(str(timecode), self._timeline_fps())
+        fps = self._timeline_fps()
+        absolute_frame = self._timecode_to_frame(str(timecode), fps)
+        return max(0, absolute_frame - self._timeline_start_frame(timeline, fps))
 
     def _timeline_fps(self) -> float:
         project = self.resolve_api.project()
@@ -57,3 +59,25 @@ class TimelineInserter:
         hours, minutes, seconds, frames = [int(part) for part in parts]
         rounded_fps = round(fps)
         return (((hours * 60 + minutes) * 60 + seconds) * rounded_fps) + frames
+
+    @classmethod
+    def _timeline_start_frame(cls, timeline: Any, fps: float) -> int:
+        get_start_frame = getattr(timeline, "GetStartFrame", None)
+        if callable(get_start_frame):
+            try:
+                value = get_start_frame()
+                if value not in (None, ""):
+                    return int(value)
+            except Exception:
+                pass
+
+        get_start_timecode = getattr(timeline, "GetStartTimecode", None)
+        if callable(get_start_timecode):
+            try:
+                value = get_start_timecode()
+                if value:
+                    return cls._timecode_to_frame(str(value), fps)
+            except Exception:
+                pass
+
+        return 0

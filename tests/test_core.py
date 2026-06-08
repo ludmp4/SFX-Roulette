@@ -15,6 +15,35 @@ from sfx_roulette.bin_scanner import BinScanner
 from sfx_roulette.hotkey_listener import parse_hotkey
 from sfx_roulette.models import AudioClip, Mapping
 from sfx_roulette.random_picker import RandomPicker
+from sfx_roulette.timeline_inserter import TimelineInserter
+
+
+class FakeTimeline:
+    def __init__(self, current_timecode: str, start_timecode: str | None = None, start_frame: int | None = None) -> None:
+        self.current_timecode = current_timecode
+        self.start_timecode = start_timecode
+        self.start_frame = start_frame
+
+    def GetCurrentTimecode(self) -> str:
+        return self.current_timecode
+
+    def GetStartTimecode(self) -> str | None:
+        return self.start_timecode
+
+    def GetStartFrame(self) -> int | None:
+        return self.start_frame
+
+
+class FakeProject:
+    def GetSetting(self, key: str) -> str:
+        if key == "timelineFrameRate":
+            return "24"
+        return ""
+
+
+class FakeResolveAPI:
+    def project(self) -> FakeProject:
+        return FakeProject()
 
 
 class CoreTests(unittest.TestCase):
@@ -53,6 +82,14 @@ class CoreTests(unittest.TestCase):
 
     def test_audio_detection_accepts_resolve_file_name_metadata(self) -> None:
         self.assertTrue(BinScanner._looks_audio({"File Name": "glitch.wav"}, "glitch", ""))
+
+    def test_current_frame_subtracts_timeline_start_timecode(self) -> None:
+        timeline = FakeTimeline(current_timecode="01:00:10:00", start_timecode="01:00:00:00")
+        self.assertEqual(TimelineInserter(FakeResolveAPI())._current_frame(timeline), 240)
+
+    def test_current_frame_uses_start_frame_when_available(self) -> None:
+        timeline = FakeTimeline(current_timecode="01:00:10:00", start_timecode="00:00:00:00", start_frame=86400)
+        self.assertEqual(TimelineInserter(FakeResolveAPI())._current_frame(timeline), 240)
 
 
 if __name__ == "__main__":

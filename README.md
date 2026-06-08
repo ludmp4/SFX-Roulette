@@ -41,6 +41,8 @@ To update from an extracted copy, double-click the same `.bat` file again.
 
 The installer clearly reports whether it installed a new version, updated from one commit to another, or found that you are already on the newest version. When an update is available, it prints a tiny “What’s new” summary from the latest commit.
 
+You do not need to install Python separately. The installer uses Windows PowerShell to copy files, and SFX Roulette runs through DaVinci Resolve Studio's bundled scripting environment.
+
 ## One-Line Install Or Update
 
 Run PowerShell as your normal Windows user and paste:

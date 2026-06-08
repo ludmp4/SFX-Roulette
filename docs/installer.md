@@ -22,6 +22,8 @@ irm https://raw.githubusercontent.com/ludmp4/SFX-Roulette/main/scripts/install_w
 
 This command downloads the latest `main` branch archive from GitHub, installs the app into `%LOCALAPPDATA%\SFX Roulette`, writes the DaVinci Resolve launcher, and creates an example settings file.
 
+The installer does not install Python. That is intentional: installation only needs PowerShell, and the plugin itself runs inside DaVinci Resolve Studio's scripting environment. Installing a separate system Python would make the setup more invasive without helping normal Resolve usage.
+
 ## User Update
 
 Run the same command again:
