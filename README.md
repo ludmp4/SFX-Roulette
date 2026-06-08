@@ -41,6 +41,8 @@ To update from an extracted copy, double-click the same `.bat` file again.
 
 The `.bat` installer always checks GitHub and installs the newest `main` version, even if the extracted ZIP is old. It clearly reports whether it installed a new version, updated from one commit to another, or found that you are already on the newest version. When an update is available, it prints a tiny “What’s new” summary from the latest commit.
 
+GitHub auto-update requires the repository archive to be accessible to the tester. If the repo is private or the tester has no GitHub access, the `.bat` falls back to installing the files bundled in the extracted ZIP and says so in the installer output.
+
 You do not need to install Python separately. The installer uses Windows PowerShell to copy files, and SFX Roulette runs through DaVinci Resolve Studio's bundled scripting environment.
 
 ## One-Line Install Or Update

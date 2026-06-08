@@ -16,6 +16,8 @@ Install SFX Roulette.bat
 
 The batch installer intentionally prefers GitHub over the extracted local files. That means an old ZIP can still update users to the newest `main` build.
 
+If GitHub does not allow archive downloads, for example because the repository is private, the installer falls back to the bundled files in the extracted ZIP and prints that fallback clearly. For friend testing without GitHub login, make the repo public or send a freshly rebuilt ZIP.
+
 Or run the one-line PowerShell installer:
 
 ```powershell

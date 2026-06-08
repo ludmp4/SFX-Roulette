@@ -352,9 +352,10 @@ if ($Uninstall) {
 }
 
 $installedInfo = Get-InstalledInfo
+$localFallbackSourceRoot = Get-LocalSourceRoot
 $sourceRoot = $null
 if (-not $PreferGitHub) {
-    $sourceRoot = Get-LocalSourceRoot
+    $sourceRoot = $localFallbackSourceRoot
 }
 if ($sourceRoot) {
     Write-Step "Using local source: $sourceRoot"
@@ -368,7 +369,20 @@ if ($sourceRoot) {
     if ($latestInfo.sha) {
         Write-Step "Newest GitHub version: $(Get-ShortSha $latestInfo.sha)"
     }
-    $sourceRoot = Get-GitHubSourceRoot
+    try {
+        $sourceRoot = Get-GitHubSourceRoot
+    } catch {
+        Write-Step "GitHub download unavailable: $($_.Exception.Message)"
+        if ($localFallbackSourceRoot) {
+            Write-Step "Installing bundled files from this extracted folder instead."
+            $sourceRoot = $localFallbackSourceRoot
+            if (-not $latestInfo.sha) {
+                $latestInfo = Get-LocalSourceInfo -SourceRoot $sourceRoot
+            }
+        } else {
+            throw
+        }
+    }
 }
 
 if ($DryRun) {
