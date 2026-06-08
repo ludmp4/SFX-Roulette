@@ -33,6 +33,7 @@
 - Confirm the audio starts at the playhead frame and preserves clip length.
 - Confirm the playhead does not move.
 - If clips land far ahead of the playhead, switch `Placement` to `Subtract Timeline Start` and test again.
+- Test a 23.976 timeline around `01:00:00:00` and confirm inserts do not land several seconds ahead.
 - Assign a missing track, such as `A8`.
 - Confirm the script creates tracks when Resolve allows it or shows a clear error.
 

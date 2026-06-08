@@ -35,15 +35,21 @@ class FakeTimeline:
 
 
 class FakeProject:
+    def __init__(self, fps: str = "24") -> None:
+        self.fps = fps
+
     def GetSetting(self, key: str) -> str:
         if key == "timelineFrameRate":
-            return "24"
+            return self.fps
         return ""
 
 
 class FakeResolveAPI:
+    def __init__(self, fps: str = "24") -> None:
+        self.fps = fps
+
     def project(self) -> FakeProject:
-        return FakeProject()
+        return FakeProject(self.fps)
 
 
 class CoreTests(unittest.TestCase):
@@ -101,6 +107,10 @@ class CoreTests(unittest.TestCase):
     def test_current_frame_can_use_start_frame_when_available(self) -> None:
         timeline = FakeTimeline(current_timecode="01:00:10:00", start_timecode="00:00:00:00", start_frame=86400)
         self.assertEqual(TimelineInserter(FakeResolveAPI(), RECORD_FRAME_RELATIVE)._current_frame(timeline), 240)
+
+    def test_current_frame_uses_exact_fractional_timeline_fps(self) -> None:
+        timeline = FakeTimeline(current_timecode="01:00:10:00", start_timecode="01:00:00:00")
+        self.assertEqual(TimelineInserter(FakeResolveAPI("23.976"))._current_frame(timeline), 86553)
 
 
 if __name__ == "__main__":

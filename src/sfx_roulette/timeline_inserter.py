@@ -64,8 +64,8 @@ class TimelineInserter:
         if len(parts) != 4:
             raise TimelineUnavailableError(f"Unexpected playhead timecode format: {timecode}")
         hours, minutes, seconds, frames = [int(part) for part in parts]
-        rounded_fps = round(fps)
-        return (((hours * 60 + minutes) * 60 + seconds) * rounded_fps) + frames
+        elapsed_seconds = (hours * 60 + minutes) * 60 + seconds
+        return round((elapsed_seconds * fps) + frames)
 
     @classmethod
     def _timeline_start_frame(cls, timeline: Any, fps: float) -> int:

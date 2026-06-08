@@ -1,5 +1,5 @@
 {
-  "version": "0.2.1",
+  "version": "0.2.2",
   "commit": "",
-  "summary": "Default placement uses Absolute Timecode; bundled fallback messaging improved."
+  "summary": "Fix playhead placement drift on 23.976 and 29.97 timelines."
 }
