@@ -4,10 +4,11 @@ param(
     [string]$InstallDir = "$env:LOCALAPPDATA\SFX Roulette",
     [string]$ConfigDir = "$HOME\Documents\SFX Roulette",
     [string]$LauncherDir = "",
+    [switch]$PreferGitHub,
     [switch]$Update,
     [switch]$Uninstall,
     [switch]$DryRun
 )
 
 $script = Join-Path $PSScriptRoot "scripts\install_windows.ps1"
-& $script -Repo $Repo -Branch $Branch -InstallDir $InstallDir -ConfigDir $ConfigDir -LauncherDir $LauncherDir -Update:$Update -Uninstall:$Uninstall -DryRun:$DryRun
+& $script -Repo $Repo -Branch $Branch -InstallDir $InstallDir -ConfigDir $ConfigDir -LauncherDir $LauncherDir -PreferGitHub:$PreferGitHub -Update:$Update -Uninstall:$Uninstall -DryRun:$DryRun

@@ -19,7 +19,7 @@ if not exist "%PS_INSTALL%" (
     exit /b 1
 )
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PS_INSTALL%" %*
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PS_INSTALL%" -PreferGitHub %*
 set "EXIT_CODE=%ERRORLEVEL%"
 
 echo.

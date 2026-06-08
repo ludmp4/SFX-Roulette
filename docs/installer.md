@@ -14,6 +14,8 @@ Download the repository ZIP from GitHub, extract it, and double-click:
 Install SFX Roulette.bat
 ```
 
+The batch installer intentionally prefers GitHub over the extracted local files. That means an old ZIP can still update users to the newest `main` build.
+
 Or run the one-line PowerShell installer:
 
 ```powershell
@@ -72,6 +74,8 @@ From a local clone:
 The local install path uses the checked-out source instead of downloading from GitHub.
 
 You can also double-click `Install SFX Roulette.bat`.
+
+Note that the `.bat` path is friend/tester oriented and prefers GitHub. For a true local-source install from the checked-out files, use `.\install.ps1` without `-PreferGitHub`.
 
 ## Custom Branch
 

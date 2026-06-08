@@ -39,7 +39,7 @@ docs/resolve_api_limitations.md
 
 To update from an extracted copy, double-click the same `.bat` file again.
 
-The installer clearly reports whether it installed a new version, updated from one commit to another, or found that you are already on the newest version. When an update is available, it prints a tiny “What’s new” summary from the latest commit.
+The `.bat` installer always checks GitHub and installs the newest `main` version, even if the extracted ZIP is old. It clearly reports whether it installed a new version, updated from one commit to another, or found that you are already on the newest version. When an update is available, it prints a tiny “What’s new” summary from the latest commit.
 
 You do not need to install Python separately. The installer uses Windows PowerShell to copy files, and SFX Roulette runs through DaVinci Resolve Studio's bundled scripting environment.
 
@@ -61,6 +61,8 @@ The same command updates SFX Roulette later. User mappings and `last_used_clip_i
 ```powershell
 .\install.ps1
 ```
+
+For a local source install that does not fetch GitHub, run `.\install.ps1` directly. The double-click `.bat` is intended for testers and always prefers GitHub updates.
 
 3. Open Resolve Studio.
 4. Open `Workspace > Scripts > Utility > SFX Roulette`.

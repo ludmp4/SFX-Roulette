@@ -4,6 +4,7 @@ param(
     [string]$InstallDir = "$env:LOCALAPPDATA\SFX Roulette",
     [string]$ConfigDir = "$HOME\Documents\SFX Roulette",
     [string]$LauncherDir = "",
+    [switch]$PreferGitHub,
     [switch]$Update,
     [switch]$Uninstall,
     [switch]$DryRun
@@ -137,9 +138,27 @@ function Get-GitHubLatestInfo {
             -Message ([string](([string]$commit.commit.message).Split("`n")[0])) `
             -Url ([string]$commit.html_url)
     } catch {
-        Write-Step "Could not check GitHub version before install: $($_.Exception.Message)"
-        return New-VersionInfo -Source "github"
+        Write-Step "GitHub API version check unavailable: $($_.Exception.Message)"
     }
+
+    $git = Get-GitCommandPath
+    if ($git) {
+        try {
+            $remoteUrl = "https://github.com/$Repo.git"
+            $line = (& $git ls-remote $remoteUrl "refs/heads/$Branch" 2>$null | Select-Object -First 1)
+            if ($line) {
+                $sha = ([string]$line).Split("`t")[0].Trim()
+                if ($sha) {
+                    return New-VersionInfo -Source "github-git" -Sha $sha -Message "Latest GitHub build"
+                }
+            }
+        } catch {
+            Write-Step "Git remote version check unavailable: $($_.Exception.Message)"
+        }
+    }
+
+    Write-Step "Could not determine the latest GitHub commit before install."
+    return New-VersionInfo -Source "github"
 }
 
 function Add-GitHubChangeSummary {
@@ -333,13 +352,22 @@ if ($Uninstall) {
 }
 
 $installedInfo = Get-InstalledInfo
-$sourceRoot = Get-LocalSourceRoot
+$sourceRoot = $null
+if (-not $PreferGitHub) {
+    $sourceRoot = Get-LocalSourceRoot
+}
 if ($sourceRoot) {
     Write-Step "Using local source: $sourceRoot"
     $latestInfo = Get-LocalSourceInfo -SourceRoot $sourceRoot
 } else {
+    if ($PreferGitHub) {
+        Write-Step "Checking GitHub for the newest version."
+    }
     $latestInfo = Get-GitHubLatestInfo
     $latestInfo = Add-GitHubChangeSummary -InstalledInfo $installedInfo -LatestInfo $latestInfo
+    if ($latestInfo.sha) {
+        Write-Step "Newest GitHub version: $(Get-ShortSha $latestInfo.sha)"
+    }
     $sourceRoot = Get-GitHubSourceRoot
 }
 
