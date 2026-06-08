@@ -12,6 +12,7 @@ if str(SRC) not in sys.path:
 
 from sfx_roulette.config_manager import ConfigManager
 from sfx_roulette.bin_scanner import BinScanner
+from sfx_roulette.controller import SFXRouletteController
 from sfx_roulette.hotkey_listener import parse_hotkey
 from sfx_roulette.models import AudioClip, Mapping
 from sfx_roulette.random_picker import RandomPicker
@@ -83,6 +84,38 @@ class CoreTests(unittest.TestCase):
             manager = ConfigManager(path)
             manager.save([Mapping("Ctrl+Alt+1", "Whooshes", 3)], RECORD_FRAME_RELATIVE)
             self.assertEqual(manager.load_record_frame_mode(), RECORD_FRAME_RELATIVE)
+
+    def test_config_preserves_duplicate_hotkey_mappings(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "config.json"
+            manager = ConfigManager(path)
+            manager.save(
+                [
+                    Mapping("Ctrl+Alt+1", "Whooshes", 3),
+                    Mapping("Ctrl+Alt+1", "Hits", 4),
+                ]
+            )
+            mappings = manager.load()
+            self.assertEqual([mapping.bin_name for mapping in mappings], ["Whooshes", "Hits"])
+            self.assertEqual(len({mapping.id for mapping in mappings}), 2)
+
+    def test_trigger_hotkey_runs_all_matching_mappings(self) -> None:
+        controller = SFXRouletteController.__new__(SFXRouletteController)
+        controller.mappings = [
+            Mapping("Ctrl+Alt+1", "Whooshes", 3),
+            Mapping("Ctrl+Alt+1", "Hits", 4),
+            Mapping("Ctrl+Alt+2", "Glitches", 5),
+        ]
+        inserted = []
+
+        def fake_insert(mapping: Mapping) -> str:
+            inserted.append((mapping.bin_name, mapping.target_audio_track))
+            return mapping.bin_name
+
+        controller.insert_for_mapping = fake_insert
+        self.assertEqual(controller.trigger_hotkey("Ctrl+Alt+1"), "Inserted 2 SFX mappings for Ctrl+Alt+1.")
+        self.assertEqual(inserted, [("Whooshes", 3), ("Hits", 4)])
+        self.assertEqual(controller.unique_hotkeys(), ["Ctrl+Alt+1", "Ctrl+Alt+2"])
 
     def test_hotkey_parser(self) -> None:
         parsed = parse_hotkey("Ctrl+Alt+1")

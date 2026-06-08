@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+import uuid
+from dataclasses import dataclass, field
 from typing import Optional
 
 
@@ -36,6 +37,11 @@ class Mapping:
     bin_name: str
     target_audio_track: Optional[int] = None
     last_used_clip_id: Optional[str] = None
+    id: str = field(default_factory=lambda: uuid.uuid4().hex)
+
+    def __post_init__(self) -> None:
+        if not self.id:
+            self.id = uuid.uuid4().hex
 
     @property
     def track_label(self) -> str:

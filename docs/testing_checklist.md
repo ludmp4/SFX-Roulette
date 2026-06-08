@@ -40,9 +40,11 @@
 ## Hotkeys
 
 - Add mappings for `Ctrl+Alt+1`, `Ctrl+Alt+2`, and `Ctrl+Shift+1`.
+- Add two mappings with the same hotkey, such as `Ctrl+Alt+1 -> Whooshes -> A3` and `Ctrl+Alt+1 -> Risers -> A4`.
 - Click `Start Hotkeys`.
 - Focus Resolve.
 - Press each hotkey and confirm the corresponding bin and track are used.
+- Press the duplicated hotkey and confirm one clip is inserted from each mapped bin on the expected tracks.
 - Focus another app and press the same hotkeys.
 - Confirm SFX Roulette does not fire while Resolve is not focused.
 

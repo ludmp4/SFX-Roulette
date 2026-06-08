@@ -27,6 +27,7 @@ class ConfigManager:
                     bin_name=str(item.get("bin_name", "")).strip(),
                     target_audio_track=self._parse_track(item.get("target_audio_track")),
                     last_used_clip_id=item.get("last_used_clip_id"),
+                    id=str(item.get("id") or "").strip() or None,
                 )
             )
         return [mapping for mapping in mappings if mapping.hotkey and mapping.bin_name]
@@ -49,6 +50,7 @@ class ConfigManager:
                     "bin_name": mapping.bin_name,
                     "target_audio_track": mapping.target_audio_track,
                     "last_used_clip_id": mapping.last_used_clip_id,
+                    "id": mapping.id,
                 }
                 for mapping in mappings
             ]

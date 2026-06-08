@@ -141,6 +141,7 @@ Uninstall removes the Resolve launcher and installed app files. It keeps user se
 - Ignores offline items, timelines, stills, Fusion comps, and obvious non-audio media.
 - Maintains `last_used_clip_id` per mapping.
 - If a bin has two or more clips, the previous clip is excluded from the next random choice.
+- Allows multiple mappings with the same hotkey. Pressing that hotkey inserts one random SFX from each assigned bin on each mapping's assigned audio track.
 - Inserts audio with `AppendToTimeline` using `recordFrame`, audio-only `mediaType`, and explicit `trackIndex` when a track is assigned.
 - Does not move the playhead intentionally.
 - Uses `Absolute Timecode` placement by default and respects fractional timeline frame rates such as 23.976 and 29.97. If a Resolve setup places clips far ahead of the playhead, switch `Placement` to `Subtract Timeline Start` in the utility panel.
@@ -148,6 +149,8 @@ Uninstall removes the Resolve launcher and installed app files. It keeps user se
 ## Hotkeys
 
 Resolve does not expose a documented public API for registering arbitrary live script hotkeys. SFX Roulette therefore uses a lightweight Windows `RegisterHotKey` listener in the utility panel. It only fires when the foreground window title contains `DaVinci Resolve`.
+
+The listener registers each unique hotkey once. If multiple rows use the same hotkey, SFX Roulette triggers all of those rows together.
 
 ## Notes
 

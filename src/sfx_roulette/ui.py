@@ -29,7 +29,7 @@ class SFXRouletteUI:
         self.bin_names: list[str] = []
         self._autosave_after_id: Optional[str] = None
         self._populating_selection = False
-        self._selected_hotkey: Optional[str] = None
+        self._selected_mapping_id: Optional[str] = None
         self._build()
         self._load_initial_state()
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -100,6 +100,7 @@ class SFXRouletteUI:
         controls = ttk.Frame(frame)
         controls.pack(fill=tk.X, pady=8)
         for label, command in (
+            ("Add Mapping", self._add_mapping),
             ("Assign Mapping", self._assign_mapping),
             ("Remove Mapping", self._remove_mapping),
             ("Refresh Bins", self._refresh_bins),
@@ -152,8 +153,13 @@ class SFXRouletteUI:
             count = ""
             if self.controller.bin_scanner:
                 count = str(self.controller.bin_scanner.clip_count(mapping.bin_name))
-            item_id = self.mapping_table.insert("", tk.END, values=(mapping.hotkey, mapping.bin_name, mapping.track_label, count))
-            if mapping.hotkey == self._selected_hotkey:
+            item_id = self.mapping_table.insert(
+                "",
+                tk.END,
+                iid=mapping.id,
+                values=(mapping.hotkey, mapping.bin_name, mapping.track_label, count),
+            )
+            if mapping.id == self._selected_mapping_id:
                 self.mapping_table.selection_set(item_id)
                 self.mapping_table.focus(item_id)
 
@@ -164,35 +170,58 @@ class SFXRouletteUI:
         hotkey, bin_name, track, _count = self.mapping_table.item(selected[0], "values")
         self._populating_selection = True
         try:
-            self._selected_hotkey = hotkey
+            self._selected_mapping_id = selected[0]
             self.hotkey_var.set(hotkey)
             self.bin_var.set(bin_name)
             self.track_var.set(track)
         finally:
             self._populating_selection = False
 
+    def _add_mapping(self) -> None:
+        try:
+            track = self._parse_track(self.track_var.get())
+            mapping = self.controller.add_mapping(self.hotkey_var.get(), self.bin_var.get(), track)
+            self.controller.set_record_frame_mode(self._placement_mode())
+            self.controller.save()
+            self._selected_mapping_id = mapping.id
+            self._refresh_table()
+            self._restart_hotkeys_if_running()
+            self.post_status(f"Added mapping {mapping.hotkey} -> {mapping.bin_name} -> {mapping.track_label}.")
+        except Exception as exc:
+            self._show_error(exc)
+
     def _assign_mapping(self) -> None:
         try:
             track = self._parse_track(self.track_var.get())
-            if self._selected_hotkey and self._selected_hotkey != self.hotkey_var.get().strip():
-                self.controller.remove_mapping(self._selected_hotkey)
-            self.controller.upsert_mapping(self.hotkey_var.get(), self.bin_var.get(), track)
+            mapping = self.controller.upsert_mapping(
+                self.hotkey_var.get(),
+                self.bin_var.get(),
+                track,
+                self._selected_mapping_id,
+            )
             self.controller.set_record_frame_mode(self._placement_mode())
             self.controller.save()
-            self._selected_hotkey = self.hotkey_var.get().strip()
+            self._selected_mapping_id = mapping.id
             self._refresh_table()
-            self.post_status(f"Saved mapping {self.hotkey_var.get()} -> {self.bin_var.get()} -> {self.track_var.get()}.")
+            self._restart_hotkeys_if_running()
+            self.post_status(f"Saved mapping {mapping.hotkey} -> {mapping.bin_name} -> {mapping.track_label}.")
         except Exception as exc:
             self._show_error(exc)
 
     def _remove_mapping(self) -> None:
-        hotkey = self.hotkey_var.get().strip()
-        self.controller.remove_mapping(hotkey)
+        mapping_id = self._selected_mapping_id
+        if not mapping_id:
+            selected = self.mapping_table.selection()
+            mapping_id = selected[0] if selected else ""
+        if not mapping_id:
+            messagebox.showinfo("SFX Roulette", "Select a mapping first.")
+            return
+        self.controller.remove_mapping(mapping_id)
         self.controller.save()
-        if self._selected_hotkey == hotkey:
-            self._selected_hotkey = None
+        self._selected_mapping_id = None
         self._refresh_table()
-        self.post_status(f"Removed mapping for {hotkey}.")
+        self._restart_hotkeys_if_running()
+        self.post_status("Removed selected mapping.")
 
     def _test_insert(self) -> None:
         selected = self.mapping_table.selection()
@@ -226,16 +255,13 @@ class SFXRouletteUI:
             return
         try:
             track = self._parse_track(self.track_var.get())
-            if self._selected_hotkey and self._selected_hotkey != hotkey:
-                self.controller.remove_mapping(self._selected_hotkey)
-            self.controller.upsert_mapping(hotkey, bin_name, track)
+            mapping = self.controller.upsert_mapping(hotkey, bin_name, track, self._selected_mapping_id)
             self.controller.set_record_frame_mode(self._placement_mode())
             self.controller.save()
-            self._selected_hotkey = hotkey
+            self._selected_mapping_id = mapping.id
             self._refresh_table()
-            if self.hotkey_listener.is_running:
-                self.hotkey_listener.start([mapping.hotkey for mapping in self.controller.mappings])
-            self.post_status(f"Auto-saved mapping {hotkey} -> {bin_name} -> {self.track_var.get().strip() or 'Auto'}.")
+            self._restart_hotkeys_if_running()
+            self.post_status(f"Auto-saved mapping {mapping.hotkey} -> {mapping.bin_name} -> {mapping.track_label}.")
         except Exception as exc:
             self._show_error(exc)
 
@@ -243,7 +269,7 @@ class SFXRouletteUI:
         return PLACEMENT_LABELS.get(self.placement_var.get(), RECORD_FRAME_ABSOLUTE)
 
     def _start_hotkeys(self) -> None:
-        hotkeys = [mapping.hotkey for mapping in self.controller.mappings]
+        hotkeys = self.controller.unique_hotkeys()
         if not hotkeys:
             messagebox.showinfo("SFX Roulette", "Add at least one mapping before starting hotkeys.")
             return
@@ -259,6 +285,10 @@ class SFXRouletteUI:
             self.post_status(self.controller.trigger_hotkey(hotkey))
         except Exception as exc:
             self.post_status(f"Error: {exc}")
+
+    def _restart_hotkeys_if_running(self) -> None:
+        if self.hotkey_listener.is_running:
+            self.hotkey_listener.start(self.controller.unique_hotkeys())
 
     def _show_error(self, exc: Exception) -> None:
         prefix = "Error" if isinstance(exc, SFXRouletteError) else "Unexpected error"

@@ -44,23 +44,54 @@ class SFXRouletteController:
         self.record_frame_mode = mode
         self.save()
 
-    def upsert_mapping(self, hotkey: str, bin_name: str, target_audio_track: Optional[int]) -> None:
+    def add_mapping(self, hotkey: str, bin_name: str, target_audio_track: Optional[int]) -> Mapping:
         hotkey = hotkey.strip()
+        mapping = Mapping(hotkey=hotkey, bin_name=bin_name.strip(), target_audio_track=target_audio_track)
+        self.mappings.append(mapping)
+        return mapping
+
+    def update_mapping(
+        self,
+        mapping_id: str,
+        hotkey: str,
+        bin_name: str,
+        target_audio_track: Optional[int],
+    ) -> Mapping:
+        hotkey = hotkey.strip()
+        bin_name = bin_name.strip()
         for mapping in self.mappings:
-            if mapping.hotkey.casefold() == hotkey.casefold():
+            if mapping.id == mapping_id:
+                mapping.hotkey = hotkey
                 mapping.bin_name = bin_name
                 mapping.target_audio_track = target_audio_track
-                return
-        self.mappings.append(Mapping(hotkey=hotkey, bin_name=bin_name, target_audio_track=target_audio_track))
+                return mapping
+        return self.add_mapping(hotkey, bin_name, target_audio_track)
 
-    def remove_mapping(self, hotkey: str) -> None:
-        self.mappings = [mapping for mapping in self.mappings if mapping.hotkey != hotkey]
+    def upsert_mapping(
+        self,
+        hotkey: str,
+        bin_name: str,
+        target_audio_track: Optional[int],
+        mapping_id: Optional[str] = None,
+    ) -> Mapping:
+        if mapping_id:
+            return self.update_mapping(mapping_id, hotkey, bin_name, target_audio_track)
+        return self.add_mapping(hotkey, bin_name, target_audio_track)
+
+    def remove_mapping(self, mapping_id: str) -> None:
+        self.mappings = [mapping for mapping in self.mappings if mapping.id != mapping_id]
+
+    def unique_hotkeys(self) -> list[str]:
+        return sorted({mapping.hotkey for mapping in self.mappings if mapping.hotkey})
 
     def trigger_hotkey(self, hotkey: str) -> str:
-        mapping = next((item for item in self.mappings if item.hotkey.casefold() == hotkey.casefold()), None)
-        if not mapping:
+        mappings = [item for item in self.mappings if item.hotkey.casefold() == hotkey.casefold()]
+        if not mappings:
             raise SFXRouletteError(f"No SFX Roulette mapping is assigned to {hotkey}.")
-        return self.insert_for_mapping(mapping)
+        messages = [self.insert_for_mapping(mapping) for mapping in mappings]
+        if len(messages) == 1:
+            return messages[0]
+        return f"Inserted {len(messages)} SFX mappings for {hotkey}."
 
     def insert_for_mapping(self, mapping: Mapping) -> str:
         self.ensure_connected()
