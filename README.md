@@ -142,6 +142,7 @@ Uninstall removes the Resolve launcher and installed app files. It keeps user se
 - If a bin has two or more clips, the previous clip is excluded from the next random choice.
 - Inserts audio with `AppendToTimeline` using `recordFrame`, audio-only `mediaType`, and explicit `trackIndex` when a track is assigned.
 - Does not move the playhead intentionally.
+- Uses `Absolute Timecode` placement by default. If a Resolve setup places clips far ahead of the playhead, switch `Placement` to `Subtract Timeline Start` in the utility panel.
 
 ## Hotkeys
 

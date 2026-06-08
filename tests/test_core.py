@@ -15,7 +15,7 @@ from sfx_roulette.bin_scanner import BinScanner
 from sfx_roulette.hotkey_listener import parse_hotkey
 from sfx_roulette.models import AudioClip, Mapping
 from sfx_roulette.random_picker import RandomPicker
-from sfx_roulette.timeline_inserter import TimelineInserter
+from sfx_roulette.timeline_inserter import RECORD_FRAME_RELATIVE, TimelineInserter
 
 
 class FakeTimeline:
@@ -71,6 +71,13 @@ class CoreTests(unittest.TestCase):
             self.assertEqual(mapping.target_audio_track, 3)
             self.assertEqual(mapping.last_used_clip_id, "clip-1")
 
+    def test_config_records_frame_mode_round_trip(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "config.json"
+            manager = ConfigManager(path)
+            manager.save([Mapping("Ctrl+Alt+1", "Whooshes", 3)], RECORD_FRAME_RELATIVE)
+            self.assertEqual(manager.load_record_frame_mode(), RECORD_FRAME_RELATIVE)
+
     def test_hotkey_parser(self) -> None:
         parsed = parse_hotkey("Ctrl+Alt+1")
         self.assertEqual(parsed.modifiers, 0x0002 | 0x0001)
@@ -83,13 +90,17 @@ class CoreTests(unittest.TestCase):
     def test_audio_detection_accepts_resolve_file_name_metadata(self) -> None:
         self.assertTrue(BinScanner._looks_audio({"File Name": "glitch.wav"}, "glitch", ""))
 
-    def test_current_frame_subtracts_timeline_start_timecode(self) -> None:
+    def test_current_frame_defaults_to_absolute_timecode(self) -> None:
         timeline = FakeTimeline(current_timecode="01:00:10:00", start_timecode="01:00:00:00")
-        self.assertEqual(TimelineInserter(FakeResolveAPI())._current_frame(timeline), 240)
+        self.assertEqual(TimelineInserter(FakeResolveAPI())._current_frame(timeline), 86640)
 
-    def test_current_frame_uses_start_frame_when_available(self) -> None:
+    def test_current_frame_can_subtract_timeline_start_timecode(self) -> None:
+        timeline = FakeTimeline(current_timecode="01:00:10:00", start_timecode="01:00:00:00")
+        self.assertEqual(TimelineInserter(FakeResolveAPI(), RECORD_FRAME_RELATIVE)._current_frame(timeline), 240)
+
+    def test_current_frame_can_use_start_frame_when_available(self) -> None:
         timeline = FakeTimeline(current_timecode="01:00:10:00", start_timecode="00:00:00:00", start_frame=86400)
-        self.assertEqual(TimelineInserter(FakeResolveAPI())._current_frame(timeline), 240)
+        self.assertEqual(TimelineInserter(FakeResolveAPI(), RECORD_FRAME_RELATIVE)._current_frame(timeline), 240)
 
 
 if __name__ == "__main__":

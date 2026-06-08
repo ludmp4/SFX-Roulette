@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Iterable, List, Optional
 
 from .models import Mapping
+from .timeline_inserter import RECORD_FRAME_ABSOLUTE, RECORD_FRAME_RELATIVE
 
 
 APP_DIR = Path.home() / "Documents" / "SFX Roulette"
@@ -17,10 +18,7 @@ class ConfigManager:
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
     def load(self) -> List[Mapping]:
-        if not self.path.exists():
-            return []
-        with self.path.open("r", encoding="utf-8") as handle:
-            data = json.load(handle)
+        data = self._load_data()
         mappings = []
         for item in data.get("mappings", []):
             mappings.append(
@@ -33,8 +31,18 @@ class ConfigManager:
             )
         return [mapping for mapping in mappings if mapping.hotkey and mapping.bin_name]
 
-    def save(self, mappings: Iterable[Mapping]) -> None:
+    def load_record_frame_mode(self) -> str:
+        data = self._load_data()
+        mode = str(data.get("record_frame_mode", RECORD_FRAME_ABSOLUTE))
+        if mode not in {RECORD_FRAME_ABSOLUTE, RECORD_FRAME_RELATIVE}:
+            return RECORD_FRAME_ABSOLUTE
+        return mode
+
+    def save(self, mappings: Iterable[Mapping], record_frame_mode: str = RECORD_FRAME_ABSOLUTE) -> None:
+        if record_frame_mode not in {RECORD_FRAME_ABSOLUTE, RECORD_FRAME_RELATIVE}:
+            record_frame_mode = RECORD_FRAME_ABSOLUTE
         payload = {
+            "record_frame_mode": record_frame_mode,
             "mappings": [
                 {
                     "hotkey": mapping.hotkey,
@@ -50,6 +58,12 @@ class ConfigManager:
             json.dump(payload, handle, indent=2)
             handle.write("\n")
         tmp_path.replace(self.path)
+
+    def _load_data(self) -> dict:
+        if not self.path.exists():
+            return {}
+        with self.path.open("r", encoding="utf-8") as handle:
+            return json.load(handle)
 
     @staticmethod
     def _parse_track(value: object) -> Optional[int]:

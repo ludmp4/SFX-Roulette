@@ -19,6 +19,8 @@ The implementation uses `MediaPool.AppendToTimeline` with a clip-info dictionary
 
 This is the most direct documented route for placing a Media Pool item at an explicit timeline frame. Some Resolve builds may reject `recordFrame` or `trackIndex` for certain clip types.
 
+SFX Roulette defaults to `Absolute Timecode` because many Resolve builds expect `recordFrame` to use the timeline's displayed frame count. Some setups may instead need timeline-start-relative frames; those users can set `Placement` to `Subtract Timeline Start` in the utility panel.
+
 ## Timecode Conversion
 
 Resolve exposes the current playhead as timecode. SFX Roulette converts that to frames using the current project's timeline frame rate. Drop-frame timecode is normalized to a best-effort frame count. For frame-critical broadcast workflows, test with your exact project frame rate before production use.

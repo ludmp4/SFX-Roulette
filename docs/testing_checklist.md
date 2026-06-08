@@ -28,9 +28,11 @@
 
 - Move the playhead to a visible empty section.
 - Assign `A3`.
+- Keep `Placement` set to `Absolute Timecode` for normal Resolve timelines.
 - Click `Test Insert`.
 - Confirm the audio starts at the playhead frame and preserves clip length.
 - Confirm the playhead does not move.
+- If clips land far ahead of the playhead, switch `Placement` to `Subtract Timeline Start` and test again.
 - Assign a missing track, such as `A8`.
 - Confirm the script creates tracks when Resolve allows it or shows a clear error.
 

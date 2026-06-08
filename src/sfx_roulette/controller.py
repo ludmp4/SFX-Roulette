@@ -8,7 +8,7 @@ from .errors import SFXRouletteError
 from .models import Mapping
 from .random_picker import RandomPicker
 from .resolve_api import ResolveAPI
-from .timeline_inserter import TimelineInserter
+from .timeline_inserter import RECORD_FRAME_ABSOLUTE, RECORD_FRAME_RELATIVE, TimelineInserter
 
 
 class SFXRouletteController:
@@ -16,6 +16,7 @@ class SFXRouletteController:
         self.status_callback = status_callback or (lambda message: None)
         self.config = ConfigManager()
         self.mappings: List[Mapping] = self.config.load()
+        self.record_frame_mode = self.config.load_record_frame_mode()
         self.resolve_api: Optional[ResolveAPI] = None
         self.bin_scanner: Optional[BinScanner] = None
         self.picker = RandomPicker()
@@ -35,7 +36,13 @@ class SFXRouletteController:
         return self.bin_scanner.bin_names()
 
     def save(self) -> None:
-        self.config.save(self.mappings)
+        self.config.save(self.mappings, self.record_frame_mode)
+
+    def set_record_frame_mode(self, mode: str) -> None:
+        if mode not in {RECORD_FRAME_ABSOLUTE, RECORD_FRAME_RELATIVE}:
+            mode = RECORD_FRAME_ABSOLUTE
+        self.record_frame_mode = mode
+        self.save()
 
     def upsert_mapping(self, hotkey: str, bin_name: str, target_audio_track: Optional[int]) -> None:
         hotkey = hotkey.strip()
@@ -61,7 +68,7 @@ class SFXRouletteController:
         assert self.bin_scanner is not None
         clips = self.bin_scanner.clips_for_bin(mapping.bin_name)
         clip = self.picker.choose(clips, mapping.last_used_clip_id)
-        TimelineInserter(self.resolve_api).insert(clip, mapping.target_audio_track)
+        TimelineInserter(self.resolve_api, self.record_frame_mode).insert(clip, mapping.target_audio_track)
         mapping.last_used_clip_id = clip.id
         self.save()
         project, timeline = self.resolve_api.current_context_label()

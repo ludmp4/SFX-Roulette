@@ -7,9 +7,14 @@ from .models import AudioClip
 from .track_manager import TrackManager
 
 
+RECORD_FRAME_ABSOLUTE = "absolute_timecode"
+RECORD_FRAME_RELATIVE = "relative_to_timeline_start"
+
+
 class TimelineInserter:
-    def __init__(self, resolve_api: Any) -> None:
+    def __init__(self, resolve_api: Any, record_frame_mode: str = RECORD_FRAME_ABSOLUTE) -> None:
         self.resolve_api = resolve_api
+        self.record_frame_mode = record_frame_mode
 
     def insert(self, clip: AudioClip, target_audio_track: Optional[int]) -> Any:
         timeline = self.resolve_api.timeline()
@@ -40,7 +45,9 @@ class TimelineInserter:
             raise TimelineUnavailableError("Cannot read the current playhead position.")
         fps = self._timeline_fps()
         absolute_frame = self._timecode_to_frame(str(timecode), fps)
-        return max(0, absolute_frame - self._timeline_start_frame(timeline, fps))
+        if self.record_frame_mode == RECORD_FRAME_RELATIVE:
+            return max(0, absolute_frame - self._timeline_start_frame(timeline, fps))
+        return absolute_frame
 
     def _timeline_fps(self) -> float:
         project = self.resolve_api.project()

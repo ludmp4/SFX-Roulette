@@ -8,6 +8,14 @@ from typing import Optional
 from .controller import SFXRouletteController
 from .errors import SFXRouletteError
 from .hotkey_listener import WindowsHotkeyListener
+from .timeline_inserter import RECORD_FRAME_ABSOLUTE, RECORD_FRAME_RELATIVE
+
+
+PLACEMENT_LABELS = {
+    "Absolute Timecode": RECORD_FRAME_ABSOLUTE,
+    "Subtract Timeline Start": RECORD_FRAME_RELATIVE,
+}
+PLACEMENT_VALUES = {value: key for key, value in PLACEMENT_LABELS.items()}
 
 
 class SFXRouletteUI:
@@ -56,10 +64,12 @@ class SFXRouletteUI:
         ttk.Label(form, text="Hotkey").grid(row=0, column=0, sticky=tk.W)
         ttk.Label(form, text="Assigned Bin").grid(row=0, column=1, sticky=tk.W, padx=(8, 0))
         ttk.Label(form, text="Track").grid(row=0, column=2, sticky=tk.W, padx=(8, 0))
+        ttk.Label(form, text="Placement").grid(row=0, column=3, sticky=tk.W, padx=(8, 0))
 
         self.hotkey_var = tk.StringVar(value="Ctrl+Alt+1")
         self.bin_var = tk.StringVar()
         self.track_var = tk.StringVar(value="Auto")
+        self.placement_var = tk.StringVar(value=PLACEMENT_VALUES.get(self.controller.record_frame_mode, "Absolute Timecode"))
         ttk.Entry(form, textvariable=self.hotkey_var, width=22).grid(row=1, column=0, sticky=tk.EW)
         self.bin_combo = ttk.Combobox(form, textvariable=self.bin_var, values=self.bin_names, width=44)
         self.bin_combo.grid(row=1, column=1, sticky=tk.EW, padx=(8, 0))
@@ -70,11 +80,20 @@ class SFXRouletteUI:
             width=18,
         )
         self.track_combo.grid(row=1, column=2, sticky=tk.EW, padx=(8, 0))
+        self.placement_combo = ttk.Combobox(
+            form,
+            textvariable=self.placement_var,
+            values=list(PLACEMENT_LABELS.keys()),
+            width=24,
+            state="readonly",
+        )
+        self.placement_combo.grid(row=1, column=3, sticky=tk.EW, padx=(8, 0))
         form.columnconfigure(1, weight=1)
-        for variable in (self.hotkey_var, self.bin_var, self.track_var):
+        for variable in (self.hotkey_var, self.bin_var, self.track_var, self.placement_var):
             variable.trace_add("write", lambda *_args: self._schedule_autosave())
         self.bin_combo.bind("<<ComboboxSelected>>", lambda _event: self._schedule_autosave(delay_ms=50))
         self.track_combo.bind("<<ComboboxSelected>>", lambda _event: self._schedule_autosave(delay_ms=50))
+        self.placement_combo.bind("<<ComboboxSelected>>", lambda _event: self._schedule_autosave(delay_ms=50))
         self.bin_combo.bind("<FocusOut>", lambda _event: self._schedule_autosave(delay_ms=50))
         self.track_combo.bind("<FocusOut>", lambda _event: self._schedule_autosave(delay_ms=50))
 
@@ -158,6 +177,7 @@ class SFXRouletteUI:
             if self._selected_hotkey and self._selected_hotkey != self.hotkey_var.get().strip():
                 self.controller.remove_mapping(self._selected_hotkey)
             self.controller.upsert_mapping(self.hotkey_var.get(), self.bin_var.get(), track)
+            self.controller.set_record_frame_mode(self._placement_mode())
             self.controller.save()
             self._selected_hotkey = self.hotkey_var.get().strip()
             self._refresh_table()
@@ -187,6 +207,7 @@ class SFXRouletteUI:
             self._show_error(exc)
 
     def _save_settings(self) -> None:
+        self.controller.set_record_frame_mode(self._placement_mode())
         self.controller.save()
         self.post_status("Settings saved.")
 
@@ -208,6 +229,7 @@ class SFXRouletteUI:
             if self._selected_hotkey and self._selected_hotkey != hotkey:
                 self.controller.remove_mapping(self._selected_hotkey)
             self.controller.upsert_mapping(hotkey, bin_name, track)
+            self.controller.set_record_frame_mode(self._placement_mode())
             self.controller.save()
             self._selected_hotkey = hotkey
             self._refresh_table()
@@ -216,6 +238,9 @@ class SFXRouletteUI:
             self.post_status(f"Auto-saved mapping {hotkey} -> {bin_name} -> {self.track_var.get().strip() or 'Auto'}.")
         except Exception as exc:
             self._show_error(exc)
+
+    def _placement_mode(self) -> str:
+        return PLACEMENT_LABELS.get(self.placement_var.get(), RECORD_FRAME_ABSOLUTE)
 
     def _start_hotkeys(self) -> None:
         hotkeys = [mapping.hotkey for mapping in self.controller.mappings]
