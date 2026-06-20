@@ -1,5 +1,5 @@
 {
-  "version": "0.4.1",
+  "version": "0.4.2",
   "commit": "",
-  "summary": "Fix Resolve 21 startup by using its already-connected _thisapp scripting host."
+  "summary": "Fix hotkeys by dispatching inserts onto Resolve's UI thread and reporting shortcut conflicts."
 }

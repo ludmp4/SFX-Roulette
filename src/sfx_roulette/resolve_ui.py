@@ -82,6 +82,7 @@ class ResolveUI:
                             ],
                         ),
                         ui.TextEdit({"ID": "Status", "ReadOnly": True, "PlainText": "Ready.", "Weight": 1}),
+                        ui.Button({"ID": "HotkeyBridge", "Hidden": True}),
                     ],
                 )
             ],
@@ -99,6 +100,7 @@ class ResolveUI:
         on.Test.Clicked = lambda _ev: self.test_insert()
         on.Start.Clicked = lambda _ev: self.start_hotkeys()
         on.Stop.Clicked = lambda _ev: self.stop_hotkeys()
+        on.HotkeyBridge.HotkeyTriggered = self.handle_hotkey_event
         on.Hotkey.EditingFinished = lambda _ev: self.autosave()
         on.Bin.CurrentIndexChanged = lambda _ev: self.autosave()
         on.Bin.EditingFinished = lambda _ev: self.autosave()
@@ -235,6 +237,10 @@ class ResolveUI:
             self.status(f"ERROR: {exc}")
 
     def on_hotkey(self, hotkey: str) -> None:
+        self.ui.QueueEvent(self.items["HotkeyBridge"], "HotkeyTriggered", {"hotkey": hotkey})
+
+    def handle_hotkey_event(self, event) -> None:
+        hotkey = event.get("hotkey", "")
         try:
             self.status(self.controller.trigger_hotkey(hotkey))
         except Exception as exc:
@@ -245,8 +251,16 @@ class ResolveUI:
         if not hotkeys:
             self.status("Add a mapping first.")
             return
-        self.listener.start(hotkeys)
-        self.status("Hotkeys are running while Resolve is focused.")
+        registered = self.listener.start(hotkeys)
+        errors = self.listener.registration_errors
+        if not registered:
+            detail = "; ".join(errors) or "Windows rejected the shortcuts."
+            self.status(f"Hotkeys could not start: {detail}")
+            return
+        message = f"Hotkeys running: {', '.join(registered)}."
+        if errors:
+            message += " Not registered: " + "; ".join(errors) + "."
+        self.status(message)
 
     def stop_hotkeys(self) -> None:
         self.listener.stop()

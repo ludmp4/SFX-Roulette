@@ -33,19 +33,32 @@ class WindowsHotkeyListener:
         self._thread: Optional[threading.Thread] = None
         self._thread_id: Optional[int] = None
         self._stop_event = threading.Event()
+        self._ready_event = threading.Event()
         self._hotkeys: Dict[int, str] = {}
+        self._registration_errors: list[str] = []
         self._next_id = 1000
 
     @property
     def is_running(self) -> bool:
         return bool(self._thread and self._thread.is_alive())
 
-    def start(self, hotkeys: Iterable[str]) -> None:
+    @property
+    def registered_hotkeys(self) -> list[str]:
+        return list(self._hotkeys.values())
+
+    @property
+    def registration_errors(self) -> list[str]:
+        return list(self._registration_errors)
+
+    def start(self, hotkeys: Iterable[str]) -> list[str]:
         if self.is_running:
             self.stop()
         self._stop_event.clear()
+        self._ready_event.clear()
         self._thread = threading.Thread(target=self._run, args=(list(hotkeys),), daemon=True)
         self._thread.start()
+        self._ready_event.wait(timeout=1.5)
+        return self.registered_hotkeys
 
     def stop(self) -> None:
         self._stop_event.set()
@@ -58,13 +71,22 @@ class WindowsHotkeyListener:
         user32 = ctypes.windll.user32
         self._thread_id = ctypes.windll.kernel32.GetCurrentThreadId()
         self._hotkeys.clear()
+        self._registration_errors.clear()
         try:
             for hotkey in hotkeys:
-                parsed = parse_hotkey(hotkey)
-                hotkey_id = self._next_id
-                self._next_id += 1
-                if user32.RegisterHotKey(None, hotkey_id, parsed.modifiers, parsed.vk):
-                    self._hotkeys[hotkey_id] = hotkey
+                try:
+                    parsed = parse_hotkey(hotkey)
+                    hotkey_id = self._next_id
+                    self._next_id += 1
+                    if user32.RegisterHotKey(None, hotkey_id, parsed.modifiers, parsed.vk):
+                        self._hotkeys[hotkey_id] = hotkey
+                    else:
+                        self._registration_errors.append(f"{hotkey} is already used by Windows or another app")
+                except Exception as exc:
+                    self._registration_errors.append(f"{hotkey}: {exc}")
+            self._ready_event.set()
+            if not self._hotkeys:
+                return
             msg = ctypes.wintypes.MSG()
             while not self._stop_event.is_set() and user32.GetMessageW(ctypes.byref(msg), None, 0, 0) != 0:
                 if msg.message == 0x0312 and self._resolve_is_focused():
@@ -74,6 +96,7 @@ class WindowsHotkeyListener:
                 user32.TranslateMessage(ctypes.byref(msg))
                 user32.DispatchMessageW(ctypes.byref(msg))
         finally:
+            self._ready_event.set()
             for hotkey_id in list(self._hotkeys):
                 user32.UnregisterHotKey(None, hotkey_id)
             self._hotkeys.clear()
