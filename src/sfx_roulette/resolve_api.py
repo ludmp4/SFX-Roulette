@@ -35,10 +35,10 @@ class ResolveAPI:
             except Exception:
                 pass
 
-        injected_bmd = getattr(__main__, "bmd", None)
-        scriptapp = getattr(injected_bmd, "scriptapp", None)
-        if callable(scriptapp):
-            resolve = scriptapp("Resolve")
+        injected_app = getattr(__main__, "_thisapp", None)
+        get_resolve = getattr(injected_app, "GetResolve", None)
+        if callable(get_resolve):
+            resolve = get_resolve()
             if resolve:
                 return resolve
 
@@ -46,15 +46,20 @@ class ResolveAPI:
             sys.path.append(str(SCRIPT_MODULE_DIR))
         try:
             module = importlib.import_module("DaVinciResolveScript")
-        except ImportError as exc:
-            raise ResolveUnavailableError(
-                "Cannot import DaVinciResolveScript. Run this from a Resolve scripting environment "
-                "or install the bundled Resolve scripting module path."
-            ) from exc
-        resolve = module.scriptapp("Resolve")
-        if not resolve:
-            raise ResolveUnavailableError("DaVinci Resolve is not running or scripting is not available.")
-        return resolve
+        except ImportError:
+            module = None
+        if module is not None:
+            resolve = module.scriptapp("Resolve")
+            if resolve:
+                return resolve
+
+        injected_bmd = getattr(__main__, "bmd", None)
+        scriptapp = getattr(injected_bmd, "scriptapp", None)
+        if callable(scriptapp):
+            resolve = scriptapp("Resolve")
+            if resolve:
+                return resolve
+        raise ResolveUnavailableError("DaVinci Resolve is not running or scripting is not available.")
 
     def project_manager(self) -> Any:
         manager = self.resolve.GetProjectManager()

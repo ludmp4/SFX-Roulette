@@ -24,7 +24,20 @@ def main():
                 sys.path.insert(0, str(src_dir))
                 break
 
-        resolve = bmd.scriptapp("Resolve")  # type: ignore[name-defined]
+        resolve = None
+        thisapp = globals().get("_thisapp")
+        get_resolve = getattr(thisapp, "GetResolve", None)
+        if callable(get_resolve):
+            resolve = get_resolve()
+
+        try:
+            import DaVinciResolveScript as dvr_script
+        except ImportError:
+            dvr_script = None
+        if resolve is None and dvr_script is not None:
+            resolve = dvr_script.scriptapp("Resolve")
+        if resolve is None:
+            resolve = bmd.scriptapp("Resolve")  # type: ignore[name-defined]
         if resolve is None:
             raise RuntimeError("DaVinci Resolve scripting is unavailable.")
 
