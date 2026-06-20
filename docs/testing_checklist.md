@@ -2,11 +2,14 @@
 
 ## Basic Resolve Connection
 
+- On Resolve 21, run the installer and confirm SFX Roulette opens from `Workspace > Scripts > Utility` without a separate Python installation.
+- Restart Resolve after installation.
 - Start DaVinci Resolve Studio.
 - Open a project.
 - Open a timeline.
 - Launch `Workspace > Scripts > Utility > SFX Roulette`.
 - Confirm the status area shows the current project and timeline after refreshing bins.
+- If startup fails, inspect `%USERPROFILE%\Documents\SFX Roulette\sfx_roulette_launch.log`.
 
 ## Bin Scanning
 

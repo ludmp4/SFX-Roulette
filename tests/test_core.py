@@ -16,6 +16,7 @@ from sfx_roulette.controller import SFXRouletteController
 from sfx_roulette.hotkey_listener import parse_hotkey
 from sfx_roulette.models import AudioClip, Mapping
 from sfx_roulette.random_picker import RandomPicker
+from sfx_roulette.resolve_api import ResolveAPI
 from sfx_roulette.timeline_inserter import RECORD_FRAME_RELATIVE, TimelineInserter
 
 
@@ -54,6 +55,10 @@ class FakeResolveAPI:
 
 
 class CoreTests(unittest.TestCase):
+    def test_resolve_api_uses_injected_resolve_context(self) -> None:
+        resolve = object()
+        self.assertIs(ResolveAPI(resolve).resolve, resolve)
+
     def test_picker_avoids_last_clip_when_possible(self) -> None:
         clips = [
             AudioClip(id="a", name="A", path="", media_pool_item=object()),

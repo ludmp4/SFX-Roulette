@@ -1,7 +1,7 @@
 param(
     [string]$Repo = "ludmp4/SFX-Roulette",
     [string]$Branch = "main",
-    [string]$InstallDir = "$env:LOCALAPPDATA\SFX Roulette",
+    [string]$InstallDir = "$env:APPDATA\Blackmagic Design\DaVinci Resolve\Support\Fusion\Modules\Python\SFX Roulette",
     [string]$ConfigDir = "$HOME\Documents\SFX Roulette",
     [string]$LauncherDir = "",
     [switch]$PreferGitHub,
@@ -60,6 +60,12 @@ function Get-ShortSha {
 
 function Get-InstalledInfo {
     $versionPath = Join-Path $InstallDir "install.json"
+    if (-not (Test-Path $versionPath)) {
+        $legacyVersionPath = Join-Path $env:LOCALAPPDATA "SFX Roulette\install.json"
+        if (Test-Path $legacyVersionPath) {
+            $versionPath = $legacyVersionPath
+        }
+    }
     if (-not (Test-Path $versionPath)) {
         return $null
     }
@@ -257,23 +263,11 @@ function Copy-AppFiles {
 function Write-ResolveLauncher {
     $launcherDir = Get-ResolveLauncherDir
     $launcherPath = Join-Path $launcherDir "SFX Roulette.py"
-    $escapedInstallDir = $InstallDir.Replace("\", "\\")
-    $launcher = @"
-import sys
-from pathlib import Path
-
-install_dir = Path(r"$escapedInstallDir")
-src_dir = install_dir / "src"
-if str(src_dir) not in sys.path:
-    sys.path.insert(0, str(src_dir))
-
-from sfx_roulette.ui import SFXRouletteUI
-SFXRouletteUI().run()
-"@
+    $launcherSource = Join-Path $InstallDir "scripts\SFX Roulette.py"
 
     Invoke-Step "Writing Resolve launcher: $launcherPath" {
         New-Item -ItemType Directory -Force -Path $launcherDir | Out-Null
-        Set-Content -LiteralPath $launcherPath -Value $launcher -Encoding UTF8
+        Copy-Item -LiteralPath $launcherSource -Destination $launcherPath -Force
     }
 }
 

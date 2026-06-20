@@ -22,6 +22,7 @@ src/sfx_roulette/
   resolve_api.py
   timeline_inserter.py
   track_manager.py
+  resolve_ui.py
   ui.py
 VERSION.json
 config/example_config.json
@@ -44,7 +45,7 @@ The `.bat` installer always checks GitHub and installs the newest `main` version
 
 GitHub auto-update requires the repository archive to be accessible to the tester. If the repo is private or the tester has no GitHub access, the `.bat` falls back to installing the files bundled in the extracted ZIP and reports the bundled package version from `VERSION.json`.
 
-You do not need to install Python separately. The installer uses Windows PowerShell to copy files, and SFX Roulette runs through DaVinci Resolve Studio's bundled scripting environment.
+You do not need to install Python manually. SFX Roulette now runs inside Resolve's own scripting context and uses Resolve's native UI Manager. Restart Resolve after installation or an update.
 
 ## One-Line Install Or Update
 
@@ -73,7 +74,7 @@ For a local source install that does not fetch GitHub, run `.\install.ps1` direc
 The installer downloads or copies the app into:
 
 ```text
-%LOCALAPPDATA%\SFX Roulette
+%APPDATA%\Blackmagic Design\DaVinci Resolve\Support\Fusion\Modules\Python\SFX Roulette
 ```
 
 It creates a Resolve launcher script in:
@@ -86,6 +87,12 @@ Settings are saved to:
 
 ```text
 %USERPROFILE%\Documents\SFX Roulette\sfx_roulette_config.json
+```
+
+Startup errors are logged to:
+
+```text
+%USERPROFILE%\Documents\SFX Roulette\sfx_roulette_launch.log
 ```
 
 ## Updating

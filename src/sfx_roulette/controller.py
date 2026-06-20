@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, List, Optional
+from typing import Any, Callable, List, Optional
 
 from .bin_scanner import BinScanner
 from .config_manager import ConfigManager
@@ -12,13 +12,19 @@ from .timeline_inserter import RECORD_FRAME_ABSOLUTE, RECORD_FRAME_RELATIVE, Tim
 
 
 class SFXRouletteController:
-    def __init__(self, status_callback: Optional[Callable[[str], None]] = None) -> None:
+    def __init__(
+        self,
+        status_callback: Optional[Callable[[str], None]] = None,
+        resolve: Any = None,
+    ) -> None:
         self.status_callback = status_callback or (lambda message: None)
         self.config = ConfigManager()
         self.mappings: List[Mapping] = self.config.load()
         self.record_frame_mode = self.config.load_record_frame_mode()
-        self.resolve_api: Optional[ResolveAPI] = None
+        self.resolve_api: Optional[ResolveAPI] = ResolveAPI(resolve) if resolve else None
         self.bin_scanner: Optional[BinScanner] = None
+        if self.resolve_api:
+            self.bin_scanner = BinScanner(self.resolve_api)
         self.picker = RandomPicker()
 
     def connect(self) -> None:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import os
 import sys
+import __main__
 from pathlib import Path
 from typing import Any
 
@@ -15,11 +16,32 @@ SCRIPT_MODULE_DIR = Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / (
 
 
 class ResolveAPI:
-    def __init__(self) -> None:
-        self.resolve = self._connect()
+    def __init__(self, resolve: Any = None) -> None:
+        self.resolve = resolve or self._connect()
 
     @staticmethod
     def _connect() -> Any:
+        injected_resolve = getattr(__main__, "resolve", None)
+        if injected_resolve:
+            return injected_resolve
+
+        injected_fusion = getattr(__main__, "fusion", None)
+        get_resolve = getattr(injected_fusion, "GetResolve", None)
+        if callable(get_resolve):
+            try:
+                resolve = get_resolve()
+                if resolve:
+                    return resolve
+            except Exception:
+                pass
+
+        injected_bmd = getattr(__main__, "bmd", None)
+        scriptapp = getattr(injected_bmd, "scriptapp", None)
+        if callable(scriptapp):
+            resolve = scriptapp("Resolve")
+            if resolve:
+                return resolve
+
         if str(SCRIPT_MODULE_DIR) not in sys.path and SCRIPT_MODULE_DIR.exists():
             sys.path.append(str(SCRIPT_MODULE_DIR))
         try:

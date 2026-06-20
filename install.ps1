@@ -1,7 +1,7 @@
 param(
     [string]$Repo = "ludmp4/SFX-Roulette",
     [string]$Branch = "main",
-    [string]$InstallDir = "$env:LOCALAPPDATA\SFX Roulette",
+    [string]$InstallDir = "$env:APPDATA\Blackmagic Design\DaVinci Resolve\Support\Fusion\Modules\Python\SFX Roulette",
     [string]$ConfigDir = "$HOME\Documents\SFX Roulette",
     [string]$LauncherDir = "",
     [switch]$PreferGitHub,
