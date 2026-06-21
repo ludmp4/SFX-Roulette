@@ -1,7 +1,9 @@
 import random
 import sys
 import tempfile
+import threading
 import unittest
+from unittest import mock
 from pathlib import Path
 
 
@@ -13,7 +15,7 @@ if str(SRC) not in sys.path:
 from sfx_roulette.config_manager import ConfigManager
 from sfx_roulette.bin_scanner import BinScanner
 from sfx_roulette.controller import SFXRouletteController
-from sfx_roulette.hotkey_listener import parse_hotkey
+from sfx_roulette.hotkey_listener import WindowsHotkeyListener, parse_hotkey
 from sfx_roulette.models import AudioClip, Mapping
 from sfx_roulette.random_picker import RandomPicker
 from sfx_roulette.resolve_api import ResolveAPI
@@ -55,6 +57,36 @@ class FakeResolveAPI:
 
 
 class CoreTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform == "win32", "Windows hotkey API test")
+    def test_windows_hotkey_listener_dispatches_registered_message(self) -> None:
+        fired = threading.Event()
+        listener = WindowsHotkeyListener(lambda _hotkey: fired.set(), focus_title="")
+        listener._resolve_is_focused = lambda: True
+        try:
+            registered = listener.start(["Ctrl+Shift+F24"])
+            self.assertEqual(registered, ["Ctrl+Shift+F24"])
+            hotkey_id = next(iter(listener._hotkeys))
+            import ctypes
+
+            ctypes.windll.user32.PostThreadMessageW(listener._thread_id, 0x0312, hotkey_id, 0)
+            self.assertTrue(fired.wait(1.0))
+        finally:
+            listener.stop()
+
+    def test_hotkey_capture_builds_chord_from_pressed_keys(self) -> None:
+        class FakeUser32:
+            @staticmethod
+            def GetAsyncKeyState(vk: int) -> int:
+                return 0x8000 if vk in {0x11, 0x12, 0x31} else 0
+
+        fake_windll = type("FakeWindll", (), {"user32": FakeUser32()})()
+        captured: list[str] = []
+        listener = WindowsHotkeyListener(lambda _hotkey: None)
+        with mock.patch("sfx_roulette.hotkey_listener.ctypes.windll", fake_windll):
+            listener.capture_next(captured.append)
+            listener._capture_thread.join(timeout=1.0)
+        self.assertEqual(captured, ["Ctrl+Alt+1"])
+
     def test_resolve_api_uses_injected_resolve_context(self) -> None:
         resolve = object()
         self.assertIs(ResolveAPI(resolve).resolve, resolve)

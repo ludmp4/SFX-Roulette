@@ -3,6 +3,7 @@ from __future__ import annotations
 import ctypes
 import ctypes.wintypes
 import threading
+import time
 from dataclasses import dataclass
 from typing import Callable, Dict, Iterable, Optional
 
@@ -37,6 +38,8 @@ class WindowsHotkeyListener:
         self._hotkeys: Dict[int, str] = {}
         self._registration_errors: list[str] = []
         self._next_id = 1000
+        self._capture_thread: Optional[threading.Thread] = None
+        self._capture_stop = threading.Event()
 
     @property
     def is_running(self) -> bool:
@@ -66,6 +69,44 @@ class WindowsHotkeyListener:
             ctypes.windll.user32.PostThreadMessageW(self._thread_id, 0x0012, 0, 0)
         if self._thread:
             self._thread.join(timeout=1.5)
+
+    def capture_next(self, callback: Callable[[str], None]) -> None:
+        self.cancel_capture()
+        self._capture_stop.clear()
+        self._capture_thread = threading.Thread(target=self._capture_run, args=(callback,), daemon=True)
+        self._capture_thread.start()
+
+    def cancel_capture(self) -> None:
+        self._capture_stop.set()
+        if self._capture_thread and self._capture_thread is not threading.current_thread():
+            self._capture_thread.join(timeout=0.5)
+        self._capture_thread = None
+
+    def _capture_run(self, callback: Callable[[str], None]) -> None:
+        user32 = ctypes.windll.user32
+        key_names = {value: key for key, value in VK_KEYS.items()}
+        escape = 0x1B
+        while not self._capture_stop.is_set():
+            if user32.GetAsyncKeyState(escape) & 0x8000:
+                callback("")
+                return
+            for vk, key_name in key_names.items():
+                if not (user32.GetAsyncKeyState(vk) & 0x8000):
+                    continue
+                modifiers = []
+                if user32.GetAsyncKeyState(0x11) & 0x8000:
+                    modifiers.append("Ctrl")
+                if user32.GetAsyncKeyState(0x12) & 0x8000:
+                    modifiers.append("Alt")
+                if user32.GetAsyncKeyState(0x10) & 0x8000:
+                    modifiers.append("Shift")
+                if (user32.GetAsyncKeyState(0x5B) | user32.GetAsyncKeyState(0x5C)) & 0x8000:
+                    modifiers.append("Win")
+                if not modifiers and not key_name.startswith("F"):
+                    continue
+                callback("+".join(modifiers + [key_name]))
+                return
+            time.sleep(0.02)
 
     def _run(self, hotkeys: list[str]) -> None:
         user32 = ctypes.windll.user32
@@ -110,7 +151,8 @@ class WindowsHotkeyListener:
         length = user32.GetWindowTextLengthW(hwnd)
         buffer = ctypes.create_unicode_buffer(length + 1)
         user32.GetWindowTextW(hwnd, buffer, length + 1)
-        return self.focus_title.lower() in buffer.value.lower()
+        title = buffer.value.lower()
+        return self.focus_title.lower() in title or "sfx roulette" in title
 
 
 def parse_hotkey(hotkey: str) -> ParsedHotkey:

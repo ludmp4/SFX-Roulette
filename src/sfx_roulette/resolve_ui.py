@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import queue
 from typing import Any, Optional
 
 from .controller import SFXRouletteController
@@ -21,6 +22,9 @@ class ResolveUI:
         self.mapping_ids: list[str] = []
         self.loading = False
         self.controls_initialized = False
+        self.pending_hotkeys: queue.SimpleQueue[str] = queue.SimpleQueue()
+        self.pending_captures: queue.SimpleQueue[str] = queue.SimpleQueue()
+        self.resume_hotkeys_after_capture = False
 
         fusion = resolve.Fusion()
         self.ui = fusion.UIManager
@@ -45,7 +49,16 @@ class ResolveUI:
                             {"Spacing": 8},
                             [
                                 ui.VGroup(
-                                    [ui.Label({"Text": "Hotkey"}), ui.LineEdit({"ID": "Hotkey", "Text": "Ctrl+Alt+1"})]
+                                    [
+                                        ui.Label({"Text": "Hotkey"}),
+                                        ui.HGroup(
+                                            {"Spacing": 6},
+                                            [
+                                                ui.LineEdit({"ID": "Hotkey", "Text": "Ctrl+Alt+1", "Weight": 1}),
+                                                ui.Button({"ID": "Capture", "Text": "Capture Hotkey"}),
+                                            ],
+                                        ),
+                                    ]
                                 ),
                                 ui.VGroup(
                                     {"Weight": 2},
@@ -83,6 +96,7 @@ class ResolveUI:
                         ),
                         ui.TextEdit({"ID": "Status", "ReadOnly": True, "PlainText": "Ready.", "Weight": 1}),
                         ui.Button({"ID": "HotkeyBridge", "Hidden": True}),
+                        ui.Button({"ID": "CaptureBridge", "Hidden": True}),
                     ],
                 )
             ],
@@ -100,7 +114,9 @@ class ResolveUI:
         on.Test.Clicked = lambda _ev: self.test_insert()
         on.Start.Clicked = lambda _ev: self.start_hotkeys()
         on.Stop.Clicked = lambda _ev: self.stop_hotkeys()
-        on.HotkeyBridge.HotkeyTriggered = self.handle_hotkey_event
+        on.Capture.Clicked = lambda _ev: self.capture_hotkey()
+        on.HotkeyBridge.Clicked = self.handle_hotkey_event
+        on.CaptureBridge.Clicked = self.handle_captured_hotkey
         on.Hotkey.EditingFinished = lambda _ev: self.autosave()
         on.Bin.CurrentIndexChanged = lambda _ev: self.autosave()
         on.Bin.EditingFinished = lambda _ev: self.autosave()
@@ -237,16 +253,43 @@ class ResolveUI:
             self.status(f"ERROR: {exc}")
 
     def on_hotkey(self, hotkey: str) -> None:
-        self.ui.QueueEvent(self.items["HotkeyBridge"], "HotkeyTriggered", {"hotkey": hotkey})
+        self.pending_hotkeys.put(hotkey)
+        self.items["HotkeyBridge"].QueueEvent("Clicked", {})
 
-    def handle_hotkey_event(self, event) -> None:
-        hotkey = event.get("hotkey", "")
-        try:
-            self.status(self.controller.trigger_hotkey(hotkey))
-        except Exception as exc:
-            self.status(f"ERROR: {exc}")
+    def handle_hotkey_event(self, _event) -> None:
+        while not self.pending_hotkeys.empty():
+            hotkey = self.pending_hotkeys.get()
+            try:
+                self.status(self.controller.trigger_hotkey(hotkey))
+            except Exception as exc:
+                self.status(f"ERROR: {exc}")
+
+    def capture_hotkey(self) -> None:
+        self.resume_hotkeys_after_capture = self.listener.is_running
+        self.listener.stop()
+        self.status("Press the new hotkey now. Press Esc to cancel.")
+        self.listener.capture_next(self.on_captured_hotkey)
+
+    def on_captured_hotkey(self, hotkey: str) -> None:
+        self.pending_captures.put(hotkey)
+        self.items["CaptureBridge"].QueueEvent("Clicked", {})
+
+    def handle_captured_hotkey(self, _event) -> None:
+        if self.pending_captures.empty():
+            return
+        hotkey = self.pending_captures.get()
+        if not hotkey:
+            self.status("Hotkey capture cancelled.")
+        else:
+            self.items["Hotkey"].Text = hotkey
+            self.save_mapping()
+            self.status(f"Captured and saved {hotkey}.")
+        if self.resume_hotkeys_after_capture:
+            self.start_hotkeys()
+        self.resume_hotkeys_after_capture = False
 
     def start_hotkeys(self) -> None:
+        self.listener.cancel_capture()
         hotkeys = self.controller.unique_hotkeys()
         if not hotkeys:
             self.status("Add a mapping first.")
@@ -271,6 +314,7 @@ class ResolveUI:
             self.listener.start(self.controller.unique_hotkeys())
 
     def close(self) -> None:
+        self.listener.cancel_capture()
         self.listener.stop()
         self.controller.save()
         self.dispatcher.ExitLoop()
